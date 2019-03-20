@@ -1,9 +1,8 @@
 apply plugin: 'com.android.library'
+apply plugin: 'com.novoda.bintray-release'
 
 android {
     compileSdkVersion 28
-
-
 
     defaultConfig {
         minSdkVersion 15
@@ -12,7 +11,6 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-
     }
 
     buildTypes {
@@ -21,7 +19,6 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-
 }
 
 dependencies {
@@ -33,5 +30,13 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
 
     api 'com.aliyun.dpa:oss-android-sdk:2.9.0'
-    api 'com.alibaba:fastjson:1.1.70.android'
+}
+
+publish {
+    userOrg = 'skyui' //bintray账户下某个组织id
+    groupId = 'cn.skyui' //maven仓库下库的包名，一般为模块包名
+    artifactId = 'library-oss' //项目名称
+    publishVersion = '1.0.0' //版本号
+    desc = 'upload to aliyun oss for android' //项目介绍，可以不写
+    website = 'https://github.com/tianshaojie/android-library-oss' //项目主页，可以不写
 }

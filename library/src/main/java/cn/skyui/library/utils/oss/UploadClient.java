@@ -2,7 +2,6 @@ package cn.skyui.library.utils.oss;
 
 import android.util.Log;
 
-import com.alibaba.fastjson.JSONObject;
 import com.alibaba.sdk.android.oss.ClientConfiguration;
 import com.alibaba.sdk.android.oss.ClientException;
 import com.alibaba.sdk.android.oss.OSS;
@@ -16,6 +15,8 @@ import com.alibaba.sdk.android.oss.common.auth.OSSFederationToken;
 import com.alibaba.sdk.android.oss.internal.OSSAsyncTask;
 import com.alibaba.sdk.android.oss.model.PutObjectRequest;
 import com.alibaba.sdk.android.oss.model.PutObjectResult;
+
+import org.json.JSONObject;
 
 import java.io.File;
 
@@ -59,14 +60,17 @@ public class UploadClient {
 
     private static OSSFederationToken getToken() {
         try {
-            JSONObject jsonObject = OssInitManager.getTokenProvider().getToken();
-            String ak = jsonObject.getString("AccessKeyId");
-            String sk = jsonObject.getString("AccessKeySecret");
-            String securityToken = jsonObject.getString("SecurityToken");
-            long expireTime = jsonObject.getLong("Expiration");
-            return new OSSFederationToken(ak, sk, securityToken, expireTime);
+            String tokenJsonStr = OssInitManager.getTokenProvider().getToken();
+            if(tokenJsonStr != null && tokenJsonStr.length() > 0) {
+                JSONObject jsonObject =  new JSONObject(tokenJsonStr);
+                String ak = jsonObject.getString("AccessKeyId");
+                String sk = jsonObject.getString("AccessKeySecret");
+                String securityToken = jsonObject.getString("SecurityToken");
+                long expireTime = jsonObject.getLong("Expiration");
+                return new OSSFederationToken(ak, sk, securityToken, expireTime);
+            }
         } catch (Exception e) {
-            Log.e("oss", e.getMessage());
+            Log.e("oss", "getToken exception: " + e.getMessage());
         }
         return null;
     }
