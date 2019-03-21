@@ -1,5 +1,6 @@
 package cn.skyui.library.utils.oss;
 
+import android.app.Application;
 import android.util.Log;
 
 import com.alibaba.sdk.android.oss.ClientConfiguration;
@@ -20,32 +21,57 @@ import org.json.JSONObject;
 
 import java.io.File;
 
-/**
- * Created by tiansj on 15/8/31.
- */
-public class UploadClient {
+public class OssClient {
 
-    public static final String IMAGE_DOMAIN = "http://oss-cn-beijing.aliyuncs.com"; // 该目录下要有两个文件：file1m  file10m
-    public static final String BUCKET_NAME = "astatic";
+    private static final String HTTP_DOMAIN_NAME = "http://";
+    private static final String HTTPS_DOMAIN_NAME = "https://";
+    // oss-cn-beijing.aliyuncs.com
+    private static String endpoint;
+    // astatic
+    private static String bucketName;
+    private static Application application;
+    private static ITokenProvider tokenProvider;
 
-    static OSS oss;
-    static {
+    private static OSS oss;
+
+    public interface ITokenProvider {
+        String getToken();
+    }
+
+    /**
+     * 初始化配置信息
+     * @param _endpoint 节点
+     * @param _bucketName 储存区
+     * @param _application 上下文
+     * @param _tokenProvider http同步方法返回token
+     */
+    public static void init(String _endpoint,
+                            String _bucketName,
+                            Application _application,
+                            ITokenProvider _tokenProvider) {
+        endpoint = _endpoint;
+        if(endpoint.startsWith(HTTP_DOMAIN_NAME)) {
+            endpoint = endpoint.replaceFirst(HTTP_DOMAIN_NAME, "");
+        } else if(endpoint.startsWith(HTTPS_DOMAIN_NAME)) {
+            endpoint = endpoint.replaceFirst(HTTPS_DOMAIN_NAME, "");
+        }
+        bucketName = _bucketName;
+        application = _application;
+        tokenProvider = _tokenProvider;
         initOSS();
     }
 
-    // 初始化OSSClient
+    /**
+     * 初始化OSSClient
+     */
     private static void initOSS() {
-        if(!OssInitManager.isIsInitialized()) {
-            Log.e("oss", "oss library not init!");
-        }
-
         OSSLog.enableLog();
 
         //推荐使用OSSAuthCredentialsProvider。token过期可以及时更新
         OSSFederationCredentialProvider ossFederationCredentialProvider = new OSSFederationCredentialProvider() {
             @Override
             public OSSFederationToken getFederationToken() {
-               return getToken();
+                return getToken();
             }
         };
 
@@ -55,12 +81,12 @@ public class UploadClient {
         conf.setSocketTimeout(15 * 1000); // socket超时，默认15秒
         conf.setMaxConcurrentRequest(5); // 最大并发请求数，默认5个
         conf.setMaxErrorRetry(2); // 失败后最大重试次数，默认2次
-        oss = new OSSClient(OssInitManager.getApplication(), IMAGE_DOMAIN, ossFederationCredentialProvider);
+        oss = new OSSClient(application, endpoint, ossFederationCredentialProvider);
     }
 
     private static OSSFederationToken getToken() {
         try {
-            String tokenJsonStr = OssInitManager.getTokenProvider().getToken();
+            String tokenJsonStr = tokenProvider.getToken();
             if(tokenJsonStr != null && tokenJsonStr.length() > 0) {
                 JSONObject jsonObject =  new JSONObject(tokenJsonStr);
                 String ak = jsonObject.getString("AccessKeyId");
@@ -75,23 +101,31 @@ public class UploadClient {
         return null;
     }
 
-    public static void asyncUpload(File file, final UploadCallbackHandler handler) {
-        if(!OssInitManager.isIsInitialized()) {
-            Log.e("oss", "oss library not init!");
+    /**
+     * 异步上传文件
+     * @param file 文件
+     * @param callback 在主线程回调
+     * @return 上传的异步任务实例，可以用于取消等操作
+     */
+    public static OSSAsyncTask asyncUpload(File file, final UploadCallback callback) {
+        if(oss == null) {
+            Log.e("oss", "oss client not init!");
+            return null;
         }
 
         if(file == null) {
-            return;
+            return null;
         }
+
         // 构造上传请求
-        PutObjectRequest put = new PutObjectRequest(BUCKET_NAME, file.getName(), file.getAbsolutePath());
+        PutObjectRequest put = new PutObjectRequest(bucketName, file.getName(), file.getAbsolutePath());
 
         // 异步上传时可以设置进度回调
         put.setProgressCallback(new OSSProgressCallback<PutObjectRequest>() {
             @Override
             public void onProgress(PutObjectRequest request, long currentSize, long totalSize) {
                 Log.d("oss","PutObject = " + "currentSize: " + currentSize + " totalSize: " + totalSize);
-                handler.handleProgressMessage(request.getObjectKey(), currentSize, totalSize);
+                callback.handleProgressMessage(request.getObjectKey(), currentSize, totalSize);
             }
         });
         OSSAsyncTask task = oss.asyncPutObject(put, new OSSCompletedCallback<PutObjectRequest, PutObjectResult>() {
@@ -100,7 +134,9 @@ public class UploadClient {
                 Log.d("oss","PutObject = " + request.getObjectKey());
                 Log.d("oss","ETagt = " + result.getETag());
                 Log.d("oss","RequestIdt = " + result.getRequestId());
-                handler.sendSuccessMessage(request.getObjectKey());
+                String url = HTTP_DOMAIN_NAME + bucketName + endpoint + request.getObjectKey();
+                Log.d("oss","url = " + url);
+                callback.sendSuccessMessage(url);
             }
             @Override
             public void onFailure(PutObjectRequest request, ClientException clientExcepion, ServiceException serviceException) {
@@ -116,9 +152,11 @@ public class UploadClient {
                     Log.e("oss","HostId = " + serviceException.getHostId());
                     Log.e("oss","RawMessage = " + serviceException.getRawMessage());
                 }
-                handler.sendFailureMessage(request.getObjectKey(), serviceException);
+                callback.sendFailureMessage(request.getObjectKey(), serviceException);
             }
         });
+
+        return task;
     }
 
 }

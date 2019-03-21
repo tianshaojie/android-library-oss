@@ -7,7 +7,7 @@ import android.util.Log;
 
 import com.alibaba.sdk.android.oss.ServiceException;
 
-public class UploadCallbackHandler {
+public class UploadCallback {
 
     protected static final int SUCCESS_MESSAGE = 0;
     protected static final int PROGRESS_MESSAGE = 1;
@@ -15,18 +15,18 @@ public class UploadCallbackHandler {
 
     private Handler handler;
 
-    public UploadCallbackHandler() {
+    public UploadCallback() {
         if (Looper.myLooper() != null) {
             handler = new Handler() {
                 @Override
                 public void handleMessage(Message msg) {
-                    UploadCallbackHandler.this.handleMessage(msg);
+                    UploadCallback.this.handleMessage(msg);
                 }
             };
         }
     }
 
-    public void onSuccess(String content) {
+    public void onSuccess(String url) {
 
     }
     public void onProgress(String objectKey, long byteCount, long totalSize) {
@@ -39,8 +39,8 @@ public class UploadCallbackHandler {
         }
     }
 
-    protected void sendSuccessMessage(String objectKey) {
-        sendMessage(obtainMessage(SUCCESS_MESSAGE, new Object[]{objectKey}));
+    protected void sendSuccessMessage(String url) {
+        sendMessage(obtainMessage(SUCCESS_MESSAGE, new Object[]{url}));
     }
 
     protected void sendProgressMessage(String objectKey, int byteCount, int totalSize) {
